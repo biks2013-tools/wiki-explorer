@@ -1,0 +1,29 @@
+Wiki Explorer - installation notes
+==================================
+
+Wiki Explorer is a macOS app for the wikis built with llm-wiki (Karpathy's LLM Wiki pattern):
+explore your wikis, read pages with their links, search, ask questions with linked sources,
+add files or web pages, and create wikis.
+
+1. Install
+   Drag "Wiki Explorer" onto the "Applications" shortcut in this window.
+   The app is signed with a Developer ID certificate and notarized by Apple, so macOS opens it
+   without a Gatekeeper warning. Requires macOS 14 or later (Apple silicon or Intel).
+
+2. Requirements
+   Wiki Explorer drives the llm-wiki command-line tool, which must be installed on this Mac:
+     - Node.js 22 or later and pnpm
+     - git clone https://github.com/BikS2013/llm-wiki && cd llm-wiki && pnpm install && pnpm link:global
+     - its settings in ~/.tool-agents/llm-wiki/.env (chat model, parser model, API keys);
+       see `llm-wiki guide config`
+   Optional: set LLM_WIKI_BROWSER to Google Chrome (or Chromium, Edge, Brave) so web pages that
+   build their content with JavaScript can be saved as PDF when you add them.
+
+3. First launch
+   Wiki Explorer reads your login shell's environment once, so it finds llm-wiki, Node.js and the
+   API keys your shell exports. If llm-wiki is not found, set its path in Wiki Explorer > Settings.
+
+4. Use
+   Cmd-Shift-N   new wiki            Cmd-I   add files or web pages
+   Cmd-K         ask a question      Cmd-U   check outside sources for changes
+   Cmd-[ / ]     back / forward      Cmd-R   reload the wikis
