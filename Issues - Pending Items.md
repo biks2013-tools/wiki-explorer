@@ -22,4 +22,7 @@
   WebKit blocks local images in string-loaded pages); Check Sources sheet (⌘U) for SHA-256 change detection of
   outside sources with one-click update; "Save every page as PDF" in Add Sources; universal build signed with
   Developer ID (hardened runtime) and notarized by `scripts/package.sh`.
+- 2026-10-17 — 0.2.1: new app icon (dark ink tile, paper pages with a copper graph of linked nodes, copper
+  magnifying glass enlarging one node; vector-drawn by `scripts/make-icon.swift`, simplified at 64 px and
+  below); links updated after llm-wiki moved to biks2013-tools/llm-wiki.
 

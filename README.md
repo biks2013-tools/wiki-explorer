@@ -1,6 +1,8 @@
+<img src="docs/design/app-icon.png" alt="Wiki Explorer icon" width="128" align="right">
+
 # Wiki Explorer
 
-A native macOS app for the wikis built with [llm-wiki](https://github.com/BikS2013/llm-wiki) — Andrej Karpathy's *LLM Wiki* pattern: an
+A native macOS app for the wikis built with [llm-wiki](https://github.com/biks2013-tools/llm-wiki) — Andrej Karpathy's *LLM Wiki* pattern: an
 LLM compiles your documents into an interlinked wiki that keeps getting richer.
 
 - **Explore the wikis** — every registered wiki with its description, format (markdown or HTML), page count
@@ -24,7 +26,7 @@ LLM compiles your documents into an interlinked wiki that keeps getting richer.
 ## Requirements
 
 - macOS 14 or later, Swift 5.10+ toolchain (Xcode or Command Line Tools) to build.
-- The `llm-wiki` command ([BikS2013/llm-wiki](https://github.com/BikS2013/llm-wiki): `pnpm install && pnpm link:global`) with its settings in
+- The `llm-wiki` command ([biks2013-tools/llm-wiki](https://github.com/biks2013-tools/llm-wiki): `pnpm install && pnpm link:global`) with its settings in
   `~/.tool-agents/llm-wiki/.env` (chat model, parser model for documents and images; see `llm-wiki guide config`).
 
 ## Install

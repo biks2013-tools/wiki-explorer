@@ -13,7 +13,7 @@ add files or web pages, and create wikis.
 2. Requirements
    Wiki Explorer drives the llm-wiki command-line tool, which must be installed on this Mac:
      - Node.js 22 or later and pnpm
-     - git clone https://github.com/BikS2013/llm-wiki && cd llm-wiki && pnpm install && pnpm link:global
+     - git clone https://github.com/biks2013-tools/llm-wiki && cd llm-wiki && pnpm install && pnpm link:global
      - its settings in ~/.tool-agents/llm-wiki/.env (chat model, parser model, API keys);
        see `llm-wiki guide config`
    Optional: set LLM_WIKI_BROWSER to Google Chrome (or Chromium, Edge, Brave) so web pages that
