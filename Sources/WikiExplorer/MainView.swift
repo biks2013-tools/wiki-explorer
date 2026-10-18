@@ -6,6 +6,7 @@ struct MainView: View {
     @State private var showNewWiki = false
     @State private var showIngest = false
     @State private var showSources = false
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         @Bindable var model = model
@@ -18,23 +19,37 @@ struct MainView: View {
             case .ready:
                 NavigationSplitView {
                     WikiSidebar(showNewWiki: $showNewWiki)
+                        .tourAnchor(.wikiList)
                         .navigationSplitViewColumnWidth(min: 220, ideal: 260)
                 } content: {
                     PageListColumn()
+                        .tourAnchor(.pageList)
                         .navigationSplitViewColumnWidth(min: 260, ideal: 320)
                 } detail: {
-                    PageDetailView()
-                        .frame(minWidth: 460)
+                    Group {
+                        switch model.detailMode {
+                        case .page: PageDetailView()
+                        case .graph: WikiGraphView()
+                        }
+                    }
+                    .frame(minWidth: 460)
                 }
                 .inspector(isPresented: $model.showAsk) {
-                    AskPanel().inspectorColumnWidth(min: 340, ideal: 440, max: 700)
+                    AskPanel().tourAnchor(.askPanel).inspectorColumnWidth(min: 340, ideal: 440, max: 700)
                 }
                 .toolbar { toolbar }
                 .sheet(isPresented: $showNewWiki) { NewWikiSheet() }
                 .sheet(isPresented: $showIngest) { IngestSheet() }
                 .sheet(isPresented: $showSources) { SourcesSheet() }
+                .task {
+                    // First launch: offer the guided tour once the window has its size.
+                    guard !UserDefaults.standard.bool(forKey: TourController.seenKey) else { return }
+                    try? await Task.sleep(for: .seconds(1.2))
+                    TourController.shared.start(model: model)
+                }
             }
         }
+        .background(TourMainWindowAnchor())
         .alert("Something went wrong", isPresented: Binding(get: { model.errorMessage != nil }, set: { if !$0 { model.errorMessage = nil } })) {
             Button("OK", role: .cancel) { model.errorMessage = nil }
         } message: {
@@ -51,21 +66,42 @@ struct MainView: View {
         ToolbarItemGroup(placement: .navigation) {
             Button { model.goBack() } label: { Label("Back", systemImage: "chevron.left") }
                 .disabled(!model.canGoBack)
-                .keyboardShortcut("[", modifiers: .command)
+                .help("Back (\(AppShortcuts.back.display))")
             Button { model.goForward() } label: { Label("Forward", systemImage: "chevron.right") }
                 .disabled(!model.canGoForward)
-                .keyboardShortcut("]", modifiers: .command)
+                .help("Forward (\(AppShortcuts.forward.display))")
+        }
+        ToolbarItem(placement: .primaryAction) {
+            Picker("View", selection: Binding(get: { model.detailMode }, set: { model.detailMode = $0 })) {
+                Label("Page", systemImage: "doc.richtext").tag(DetailMode.page)
+                Label("Graph", systemImage: "circle.hexagongrid").tag(DetailMode.graph)
+            }
+            .pickerStyle(.segmented)
+            .help("Show the open page, or the wiki as a graph of linked pages (\(AppShortcuts.graph.display))")
+            .disabled(model.selectedWiki?.healthy != true)
+            .tourAnchor(.graphToggle)
         }
         ToolbarItemGroup(placement: .primaryAction) {
             Button { showSources = true } label: { Label("Check Sources", systemImage: "arrow.triangle.2.circlepath") }
-                .help("Check downloaded pages and outside files for changes, and update the wiki")
+                .help("Check downloaded pages and outside files for changes, and update the wiki (\(AppShortcuts.checkSources.display))")
                 .disabled(model.selectedWiki?.healthy != true)
             Button { showIngest = true } label: { Label("Add Sources", systemImage: "square.and.arrow.down.on.square") }
-                .help("Ingest files or web pages into the selected wiki")
+                .help("Ingest files or web pages into the selected wiki (\(AppShortcuts.addSources.display))")
                 .disabled(model.selectedWiki?.healthy != true)
             Button { model.showAsk.toggle() } label: { Label("Ask", systemImage: "questionmark.bubble") }
-                .help("Ask a question and get an answer with linked sources")
-                .keyboardShortcut("k", modifiers: .command)
+                .help("Ask a question and get an answer with linked sources (\(AppShortcuts.ask.display))")
+            Menu {
+                Button { TourController.shared.start(model: model) } label: { Label("Take the Tour", systemImage: "figure.walk") }
+                    .keyboardShortcut(AppShortcuts.tour)
+                Button { openWindow(id: ShortcutsGuideView.windowID) } label: { Label("Keyboard Shortcuts", systemImage: "keyboard") }
+                    .keyboardShortcut(AppShortcuts.shortcutsGuide)
+                Divider()
+                SettingsLink { Label("Settings…", systemImage: "gearshape") }
+            } label: {
+                Label("More", systemImage: "ellipsis.circle")
+            }
+            .menuIndicator(.hidden)
+            .help("Guided tour, keyboard shortcuts and settings")
         }
     }
 }

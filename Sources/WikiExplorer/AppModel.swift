@@ -17,6 +17,11 @@ struct AskEntry: Identifiable {
     let response: QueryResponse
 }
 
+/// What the detail column shows.
+enum DetailMode: String {
+    case page, graph
+}
+
 enum SetupState: Equatable {
     case starting
     case ready(version: String)
@@ -37,6 +42,7 @@ final class AppModel {
         didSet {
             guard oldValue != selectedWikiName else { return }
             if !searchAllWikis { searchText = "" }
+            graph = nil
             Task { await loadPages() }
         }
     }
@@ -50,6 +56,12 @@ final class AppModel {
     }
     var pageView: PageView?
     var loadingPage = false
+
+    // Graph
+    var detailMode: DetailMode = .page
+    var graph: WikiGraph?
+    var loadingGraph = false
+    private var graphWiki: String?
 
     // Search
     var searchText = ""
@@ -74,6 +86,8 @@ final class AppModel {
     private var forward: [PageLocation] = []
     var canGoBack: Bool { !back.isEmpty }
     var canGoForward: Bool { !forward.isEmpty }
+
+    var isReady: Bool { if case .ready = setup { return true } else { return false } }
 
     var selectedWiki: WikiSummary? { wikis.first { $0.name == selectedWikiName } }
 
@@ -213,6 +227,94 @@ final class AppModel {
         NSWorkspace.shared.open(url)
     }
 
+    // MARK: - Opening outside the app
+
+    /// The file of a page of a wiki (`path` relative to the wiki root, e.g. `wiki/concepts/x.html`).
+    func fileURL(wiki: String, path: String) -> URL? {
+        guard let root = wikis.first(where: { $0.name == wiki })?.root else { return nil }
+        return URL(fileURLWithPath: root).appendingPathComponent(path)
+    }
+
+    /// Opens an HTML page file in the default web browser (not whatever app .html files open with).
+    func openInBrowser(_ file: URL) {
+        guard FileManager.default.fileExists(atPath: file.path) else {
+            errorMessage = "\(file.path) does not exist."
+            return
+        }
+        guard let browser = NSWorkspace.shared.urlForApplication(toOpen: URL(string: "https://example.com")!) else {
+            errorMessage = "No default web browser is set on this Mac (System Settings › Desktop & Dock › Default web browser)."
+            return
+        }
+        NSWorkspace.shared.open([file], withApplicationAt: browser, configuration: NSWorkspace.OpenConfiguration()) { _, error in
+            if let error { Task { @MainActor in self.report(error) } }
+        }
+    }
+
+    /// Selects files in Finder (one Finder window per folder).
+    func showInFinder(_ files: [URL]) {
+        let existing = files.filter { FileManager.default.fileExists(atPath: $0.path) }
+        guard !existing.isEmpty else {
+            errorMessage = files.count == 1 ? "\(files[0].path) does not exist." : "None of these files exist."
+            return
+        }
+        NSWorkspace.shared.activateFileViewerSelecting(existing)
+    }
+
+    /// The open page is an HTML file that a browser can show.
+    var pageOpensInBrowser: Bool { pageView?.format == "html" }
+
+    func openCurrentPageInBrowser() {
+        guard let page = pageView, page.format == "html" else { return }
+        openInBrowser(URL(fileURLWithPath: page.abs))
+    }
+
+    func showCurrentPageInFinder() {
+        guard let page = pageView else { return }
+        showInFinder([URL(fileURLWithPath: page.abs)])
+    }
+
+    func showCurrentSourcesInFinder() {
+        guard let page = pageView else { return }
+        showInFinder(page.sourceFiles.filter(\.exists).map { URL(fileURLWithPath: $0.abs) })
+    }
+
+    /// Puts the cursor in the toolbar's search field.
+    func focusSearch() {
+        guard let window = NSApp.keyWindow ?? NSApp.mainWindow, let field = NSWindow.searchField(in: window) else { return }
+        window.makeFirstResponder(field)
+    }
+
+    // MARK: - Graph
+
+    /// Loads the selected wiki's graph (once per wiki unless `force`).
+    func loadGraph(force: Bool = false) async {
+        guard let cli, let wiki = selectedWikiName, selectedWiki?.healthy == true else {
+            graph = nil
+            return
+        }
+        if !force, graph != nil, graphWiki == wiki { return }
+        loadingGraph = true
+        defer { loadingGraph = false }
+        do {
+            let g = try await cli.graph(wiki: wiki)
+            guard wiki == selectedWikiName else { return }
+            graphWiki = wiki
+            graph = g
+        } catch {
+            report(error)
+        }
+    }
+
+    func toggleGraph() {
+        detailMode = detailMode == .graph ? .page : .graph
+    }
+
+    /// The graph, gathered round the open page.
+    func showCurrentPageInGraph() {
+        detailMode = .graph
+        DispatchQueue.main.async { NotificationCenter.default.post(name: .graphCommand, object: "neighbourhood") }
+    }
+
     // MARK: - Search
 
     func runSearch() async {
@@ -257,6 +359,7 @@ final class AppModel {
         let keep = current
         await loadPages()
         if let keep, keep.wiki == selectedWikiName { await openPage(keep, recordHistory: false) }
+        if graph != nil || detailMode == .graph { await loadGraph(force: true) }
     }
 
     func report(_ error: Error) {

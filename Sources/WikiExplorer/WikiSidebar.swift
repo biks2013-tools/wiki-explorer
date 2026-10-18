@@ -13,9 +13,11 @@ struct WikiSidebar: View {
                 ForEach(model.wikis) { wiki in
                     WikiRow(wiki: wiki).tag(wiki.name)
                         .contextMenu {
-                            Button("Reveal in Finder") { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: wiki.root)]) }
+                            Button("Show in Finder") { model.showInFinder([URL(fileURLWithPath: wiki.root)]) }
                             if wiki.format == "html" {
-                                Button("Open Index in Browser") { NSWorkspace.shared.open(URL(fileURLWithPath: wiki.root).appendingPathComponent("wiki/index.html")) }
+                                Button("Open Index in Browser") { model.openInBrowser(URL(fileURLWithPath: wiki.root).appendingPathComponent("wiki/index.html")) }
+                            } else {
+                                Button("Show Index in Finder") { model.showInFinder([URL(fileURLWithPath: wiki.root).appendingPathComponent("wiki/index.md")]) }
                             }
                         }
                 }

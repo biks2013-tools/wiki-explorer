@@ -17,21 +17,92 @@ struct WikiExplorerApp: App {
         .commands {
             CommandGroup(after: .newItem) {
                 Button("New Wiki…") { NotificationCenter.default.post(name: .showNewWiki, object: nil) }
-                    .keyboardShortcut("n", modifiers: [.command, .shift])
+                    .keyboardShortcut(AppShortcuts.newWiki)
                 Button("Add Sources…") { NotificationCenter.default.post(name: .showIngest, object: nil) }
-                    .keyboardShortcut("i", modifiers: .command)
+                    .keyboardShortcut(AppShortcuts.addSources)
                 Button("Check Sources for Changes…") { NotificationCenter.default.post(name: .showSources, object: nil) }
-                    .keyboardShortcut("u", modifiers: .command)
+                    .keyboardShortcut(AppShortcuts.checkSources)
             }
+            CommandGroup(after: .textEditing) {
+                Button("Search") { model.focusSearch() }
+                    .keyboardShortcut(AppShortcuts.search)
+            }
+            SidebarCommands()
             CommandGroup(after: .toolbar) {
                 Button("Reload Wikis") { Task { await model.refreshAfterChange() } }
-                    .keyboardShortcut("r", modifiers: .command)
+                    .keyboardShortcut(AppShortcuts.reloadWikis)
+                Button(model.showAsk ? "Hide Ask Panel" : "Show Ask Panel") { model.showAsk.toggle() }
+                    .keyboardShortcut(AppShortcuts.ask)
+                    .disabled(!model.isReady)
+                Divider()
+                Button(model.detailMode == .graph ? "Show Page" : "Show Graph") { model.toggleGraph() }
+                    .keyboardShortcut(AppShortcuts.graph)
+                    .disabled(model.selectedWiki?.healthy != true)
+                Button("Fit Graph to Window") { NotificationCenter.default.post(name: .graphCommand, object: "fit") }
+                    .keyboardShortcut(AppShortcuts.fitGraph)
+                    .disabled(model.detailMode != .graph)
+                Button("Zoom In") { NotificationCenter.default.post(name: .graphCommand, object: "zoomIn") }
+                    .keyboardShortcut(AppShortcuts.zoomIn)
+                    .disabled(model.detailMode != .graph)
+                Button("Zoom Out") { NotificationCenter.default.post(name: .graphCommand, object: "zoomOut") }
+                    .keyboardShortcut(AppShortcuts.zoomOut)
+                    .disabled(model.detailMode != .graph)
+            }
+            CommandMenu("Page") {
+                Button("Back") { model.goBack() }
+                    .keyboardShortcut(AppShortcuts.back)
+                    .disabled(!model.canGoBack)
+                Button("Forward") { model.goForward() }
+                    .keyboardShortcut(AppShortcuts.forward)
+                    .disabled(!model.canGoForward)
+                Divider()
+                Button("Open in Browser") { model.openCurrentPageInBrowser() }
+                    .keyboardShortcut(AppShortcuts.openInBrowser)
+                    .disabled(!model.pageOpensInBrowser)
+                Button("Show in Finder") { model.showCurrentPageInFinder() }
+                    .keyboardShortcut(AppShortcuts.showInFinder)
+                    .disabled(model.pageView == nil)
+                Button("Show Sources in Finder") { model.showCurrentSourcesInFinder() }
+                    .keyboardShortcut(AppShortcuts.openSourceFolder)
+                    .disabled(model.pageView?.sourceFiles.contains(where: \.exists) != true)
+                Divider()
+                Button("Show in Graph") { model.showCurrentPageInGraph() }
+                    .keyboardShortcut(AppShortcuts.showInGraph)
+                    .disabled(model.pageView == nil)
+            }
+            CommandGroup(replacing: .help) {
+                Button("Take the Tour") { TourController.shared.start(model: model) }
+                    .keyboardShortcut(AppShortcuts.tour)
+                    .disabled(!model.isReady)
+                OpenShortcutsButton()
+                Divider()
+                Link("Wiki Explorer on GitHub", destination: URL(string: "https://github.com/biks2013-tools/wiki-explorer")!)
+                Link("llm-wiki on GitHub", destination: URL(string: "https://github.com/biks2013-tools/llm-wiki")!)
             }
         }
+        Window("Keyboard Shortcuts", id: ShortcutsGuideView.windowID) {
+            ShortcutsGuideView()
+        }
+        .windowResizability(.contentMinSize)
+        .defaultPosition(.center)
+        .defaultSize(width: 780, height: 700)
         Settings {
             SettingsView().environment(model)
         }
     }
+}
+
+/// Help › Keyboard Shortcuts (a button view, so it can use the openWindow action).
+struct OpenShortcutsButton: View {
+    @Environment(\.openWindow) private var openWindow
+    var body: some View {
+        Button("Keyboard Shortcuts") { openWindow(id: ShortcutsGuideView.windowID) }
+            .keyboardShortcut(AppShortcuts.shortcutsGuide)
+    }
+}
+
+extension ShortcutsGuideView {
+    static let windowID = "keyboard-shortcuts"
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -51,53 +122,4 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
-}
-
-struct SettingsView: View {
-    @Environment(AppModel.self) private var model
-    @AppStorage(SettingsKeys.executablePath) private var explicitPath = ""
-    @State private var configReport = ""
-
-    var body: some View {
-        Form {
-            Section("llm-wiki command") {
-                TextField("Path", text: $explicitPath, prompt: Text(model.executablePath ?? "found on your shell's PATH"))
-                Text("Leave empty to use the llm-wiki found on your login shell's PATH. Wiki Explorer runs it with your shell environment, so the settings in ~/.tool-agents/llm-wiki/.env and the API keys exported by your shell apply.")
-                    .font(.caption).foregroundStyle(.secondary)
-                HStack {
-                    switch model.setup {
-                    case let .ready(version): Label("llm-wiki \(version) — \(model.executablePath ?? "")", systemImage: "checkmark.circle").foregroundStyle(.green)
-                    case let .failed(message): Label(message, systemImage: "xmark.circle").foregroundStyle(.red)
-                    case .starting: ProgressView().controlSize(.small)
-                    }
-                    Spacer()
-                    Button("Apply") { Task { await model.bootstrap() } }
-                }
-                .font(.caption)
-            }
-            Section("Resolved configuration (llm-wiki config)") {
-                ScrollView {
-                    Text(configReport.isEmpty ? "—" : configReport)
-                        .font(.caption.monospaced())
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .frame(height: 220)
-                HStack {
-                    Button("Refresh") { Task { await loadConfig() } }
-                    Button("Open Config Folder") {
-                        NSWorkspace.shared.open(FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".tool-agents/llm-wiki"))
-                    }
-                }
-            }
-        }
-        .formStyle(.grouped)
-        .frame(width: 620)
-        .task { await loadConfig() }
-    }
-
-    private func loadConfig() async {
-        guard let cli = model.cli else { return }
-        configReport = (try? await cli.configReport()) ?? ""
-    }
 }

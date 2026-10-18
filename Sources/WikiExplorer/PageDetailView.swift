@@ -11,9 +11,10 @@ struct PageDetailView: View {
                 header(page)
                 Divider()
                 HTMLView(html: page.html, baseURL: model.selectedWiki.map { URL(fileURLWithPath: $0.root, isDirectory: true) }) { model.follow($0) }
+                    .tourAnchor(.pageBody)
                     .overlay(alignment: .top) { if model.loadingPage { ProgressView().controlSize(.small).padding(6) } }
                 Divider()
-                RelationsBar(page: page)
+                RelationsBar(page: page).tourAnchor(.relations)
             }
             .navigationTitle(page.title)
         } else if model.loadingPage {
@@ -30,14 +31,36 @@ struct PageDetailView: View {
                 .padding(.horizontal, 6).padding(.vertical, 2)
                 .background(Color.accentColor.opacity(0.15), in: Capsule())
             if let updated = page.updated { Text("updated \(updated)").font(.caption).foregroundStyle(.secondary) }
-            Text(page.path).font(.caption.monospaced()).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle)
+            Text(page.path).font(.caption.monospaced()).foregroundStyle(.tertiary).lineLimit(1).truncationMode(.middle).layoutPriority(-1)
             Spacer()
-            Button { NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: page.abs)]) } label: { Image(systemName: "folder") }
-                .buttonStyle(.borderless).help("Reveal the page file in Finder")
-            Button { NSWorkspace.shared.open(URL(fileURLWithPath: page.abs)) } label: { Image(systemName: page.format == "html" ? "safari" : "square.and.pencil") }
-                .buttonStyle(.borderless).help(page.format == "html" ? "Open the page in the browser" : "Open the page in its default editor")
+            PageActions(page: page).tourAnchor(.pageActions)
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
+    }
+}
+
+/// Open the page outside the app: an HTML page in the web browser, any page in Finder, a markdown page in its editor.
+struct PageActions: View {
+    @Environment(AppModel.self) private var model
+    let page: PageView
+
+    var body: some View {
+        HStack(spacing: 6) {
+            if page.format == "html" {
+                Button { model.openCurrentPageInBrowser() } label: { Label("Open in Browser", systemImage: "safari") }
+                    .help("Open the page file in your web browser (\(AppShortcuts.openInBrowser.display))")
+            } else {
+                Button { NSWorkspace.shared.open(URL(fileURLWithPath: page.abs)) } label: { Label("Open in Editor", systemImage: "square.and.pencil") }
+                    .help("Open the markdown file in the app that edits .md files")
+            }
+            Button { model.showCurrentPageInFinder() } label: { Label("Show in Finder", systemImage: "folder") }
+                .help("Select the page file in Finder (\(AppShortcuts.showInFinder.display))")
+            Button { model.showCurrentPageInGraph() } label: { Label("Show in Graph", systemImage: "circle.hexagongrid") }
+                .help("Show this page and its neighbours in the graph (\(AppShortcuts.showInGraph.display))")
+        }
+        .controlSize(.small)
+        .buttonStyle(.bordered)
+        .fixedSize()
     }
 }
 
@@ -64,6 +87,13 @@ struct RelationsBar: View {
                     .buttonStyle(.link)
                     .disabled(!file.exists)
                     .help(file.exists ? "Open \(file.path)" : "\(file.path) is not in raw/")
+                    .contextMenu {
+                        Button("Open") { model.openRawFile(wiki: page.wiki, path: file.path) }
+                        Button("Show in Finder") { model.showInFinder([URL(fileURLWithPath: file.abs)]) }
+                        if file.path.lowercased().hasSuffix(".html") || file.path.lowercased().hasSuffix(".htm") {
+                            Button("Open in Browser") { model.openInBrowser(URL(fileURLWithPath: file.abs)) }
+                        }
+                    }
                 }
             } isEmpty: { page.sourceFiles.isEmpty }
         }

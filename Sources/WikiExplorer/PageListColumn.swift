@@ -54,6 +54,7 @@ struct PageListColumn: View {
                             }
                             .padding(.vertical, 2)
                             .tag(page.id)
+                            .contextMenu { pageMenu(page) }
                         }
                     }
                 }
@@ -69,6 +70,30 @@ struct PageListColumn: View {
                     Button("Add Sources…") { NotificationCenter.default.post(name: .showIngest, object: nil) }
                 }
             }
+        }
+    }
+
+    @ViewBuilder
+    private func pageMenu(_ page: PageSummary) -> some View {
+        if let wiki = model.selectedWikiName, let file = model.fileURL(wiki: wiki, path: page.path) {
+            if page.path.hasSuffix(".html") {
+                Button("Open in Browser") { model.openInBrowser(file) }
+            } else {
+                Button("Open in Editor") { NSWorkspace.shared.open(file) }
+            }
+            Button("Show in Finder") { model.showInFinder([file]) }
+        }
+    }
+
+    @ViewBuilder
+    private func hitMenu(_ hit: SearchHit) -> some View {
+        if let file = model.fileURL(wiki: hit.wiki, path: hit.file) {
+            if hit.file.lowercased().hasSuffix(".html") || hit.file.lowercased().hasSuffix(".htm") {
+                Button("Open in Browser") { model.openInBrowser(file) }
+            } else if hit.layer == "raw" {
+                Button("Open") { NSWorkspace.shared.open(file) }
+            }
+            Button("Show in Finder") { model.showInFinder([file]) }
         }
     }
 
@@ -104,6 +129,7 @@ struct PageListColumn: View {
                     }
                     .buttonStyle(.plain)
                     .padding(.vertical, 2)
+                    .contextMenu { hitMenu(hit) }
                 }
             }
         }

@@ -26,8 +26,8 @@ if [[ $ADHOC -eq 0 && -z "${WIKI_EXPLORER_SIGN_IDENTITY:-}" ]]; then
   exit 1
 fi
 
-VERSION="0.2.1"
-BUILD="3"
+VERSION="0.4.0"
+BUILD="5"
 APP="build/WikiExplorer.app"
 
 swift build -c release --arch arm64 --arch x86_64

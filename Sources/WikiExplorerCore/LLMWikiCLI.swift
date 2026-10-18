@@ -128,6 +128,11 @@ public final class LLMWikiCLI: Sendable {
         try await json(PageView.self, ["--wiki", wiki, "show", page, "--json"])
     }
 
+    /// The whole wiki as a graph: pages, links, cited source files, broken links.
+    public func graph(wiki: String) async throws -> WikiGraph {
+        try await json(WikiGraph.self, ["--wiki", wiki, "graph", "--json"])
+    }
+
     public func search(wiki: String?, allWikis: Bool, query: String, limit: Int = 30) async throws -> [SearchHit] {
         var args = allWikis ? [String]() : ["--wiki", wiki ?? ""]
         args += ["search", query, "--json", "--limit", String(limit)]

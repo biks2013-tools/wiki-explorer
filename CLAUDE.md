@@ -65,7 +65,19 @@ pages, add files or web pages (URLs), and create new wikis. It is a front end on
   shell's environment so a Finder-launched app finds `llm-wiki`, `node` and the API keys).
 - `Sources/WikiExplorer/` — the app: `AppModel` (state, navigation history, actions), `MainView` (three-column
   split view + Ask inspector), `WikiSidebar`, `PageListColumn` (pages by type, search), `PageDetailView`
-  (`HTMLView` WebKit page + links/backlinks/sources), `AskPanel`, `IngestSheet`, `NewWikiSheet`, `SettingsView`.
+  (`HTMLView` WebKit page + links/backlinks/sources), `AskPanel`, `IngestSheet`, `NewWikiSheet`, `SettingsView`, `GuidedTour` (tour overlay
+  panel, `.tourAnchor`), `ShortcutsWindow` (Keyboard Shortcuts window, `AppShortcut` → `KeyboardShortcut`),
+  `SettingsView` (llm-wiki tab = editor of `~/.tool-agents/llm-wiki/.env`; Wiki Explorer tab).
+- `Sources/WikiExplorerCore/DotenvFile.swift` / `SettingsCatalog.swift` — line-preserving reader/writer of the
+  CLI's settings file (same parsing rules as wiki-v2 `parseDotenv`) and the list of settings shown. When llm-wiki
+  gains a setting, add it to the catalogue. Never log or print values from that file.
+- `Sources/WikiExplorerCore/Graph.swift` — `WikiGraph` (`llm-wiki graph --json`), `GraphModel.build` (what the graph
+  view shows: kinds, source files, neighbourhood) and `ForceSimulation` (deterministic force layout). The app side is
+  `GraphScene.swift` (camera, pointer, Canvas drawing with blur + alpha-threshold "liquid" pools) and `GraphView.swift`
+  (the view, controls, info card, legend, scroll-wheel catcher). Keep the timeline paused when nothing moves.
+- `Sources/WikiExplorerCore/Shortcuts.swift` / `Tour.swift` — the shortcut catalogue (`AppShortcuts`, the only
+  place keys are defined) and the tour steps. Add a menu command's key there, and update the tour text when a
+  step's area or shortcut changes (tests check both).
 - `Tests/WikiExplorerCoreTests/` — XCTest: links, shell-environment parsing, the CLI runner against a fake
   script, JSON decoding, and an integration test against the installed `llm-wiki` in a throwaway HOME.
 - `scripts/build-app.sh` — universal release build → `build/WikiExplorer.app` (Info.plist, icon), signed with
